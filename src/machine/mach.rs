@@ -7,8 +7,10 @@ mod reg;
 mod stack;
 mod timer;
 
+use std::fmt::Display;
+
 use command::Command;
-use display::Display;
+use display::MachDisplay;
 use enum_iterator::all;
 use key::KeyBank;
 use memory::Memory;
@@ -18,13 +20,13 @@ use timer::Timer;
 
 use self::action::Action;
 use self::action::Actions;
-use self::command::CommandConstruct;
+use self::command::RawCommand;
 use self::command::CommandErr;
 
 #[derive(Debug, Clone)]
 pub struct Machine {
     memory: Memory<4096>,
-    display: Display<64, 32>,
+    display: MachDisplay<64, 32>,
     pc: u16,
     index: u16,
     stack: Stack,
@@ -34,15 +36,30 @@ pub struct Machine {
     key: KeyBank,
 }
 
+impl Display for Machine {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Machine {{")?;
+        writeln!(f, "PC: {:#x?}", self.pc)?;
+        writeln!(f, "Index: {:#x?}", self.index)?;
+        writeln!(f, "{:#x?}", self.stack)?;
+        writeln!(f, "{:#x?}", self.delay_timer)?;
+        writeln!(f, "{:#x?}", self.sound_timer)?;
+        writeln!(f, "{:#x?}", self.reg)?;
+        writeln!(f, "}}")
+    }
+}
+
 #[derive(Debug)]
 pub struct MachineErr;
+
+const LOAD_OFFSET: u16 = 0x200;
 
 impl Machine {
     pub fn new() -> Self {
         Self {
             memory: Memory::new(),
-            display: Display::new(),
-            pc: 0x200,
+            display: MachDisplay::new(),
+            pc: LOAD_OFFSET,
             index: 0,
             stack: Stack::new(),
             delay_timer: Timer::new(),
@@ -53,7 +70,7 @@ impl Machine {
     }
 
     pub fn load(&mut self, prog_data: &[u8]) -> Result<(), MachineErr> {
-        let mem_data = self.memory.get_mut_data(0x200, prog_data.len());
+        let mem_data = self.memory.get_mut_data(LOAD_OFFSET, prog_data.len());
         mem_data.copy_from_slice(prog_data);
         Ok(())
     }
@@ -65,8 +82,7 @@ impl Machine {
     }
 
     fn decode_command(&self, command: u16) -> Result<Command, CommandErr> {
-        let command_constructor = CommandConstruct::new(command);
-        command_constructor.try_into()
+        RawCommand(command).try_into()
     }
 
     fn increment_pc(&mut self) {
@@ -115,11 +131,15 @@ impl Machine {
                 self.index = val;
                 Actions::new()
             }
-            Command::Display(reg_x, reg_y, val) => self.display.draw(
-                self.memory.get_data(self.index, val as usize),
-                self.reg.get_value(reg_x),
-                self.reg.get_value(reg_y),
-            ),
+            Command::Display(reg_x, reg_y, val) => {
+                let actions = self.display.draw(
+                    self.memory.get_data(self.index, val as usize),
+                    self.reg.get_value(reg_x),
+                    self.reg.get_value(reg_y),
+                );
+                self.display.print();
+                actions
+            },
             Command::SkipIfRegEqual(reg_x, reg_y) => {
                 if self.reg.get_value(reg_x) == self.reg.get_value(reg_y) {
                     self.increment_pc();
@@ -343,15 +363,15 @@ impl Machine {
 
     pub fn step(&mut self) -> () {
         let command = self.fetch_command();
-        println!("Decoding command: {:#x?}", command);
+        // println!("Decoding command: {:#x?}", command);
         let command = self.decode_command(command).unwrap();
-        println!("Executing command: {:#x?}", command);
+        // println!("Executing command: {:#x?}", command);
         self.execute_command(command);
     }
 
     pub fn run(&mut self) -> () {
         loop {
-            std::thread::sleep(std::time::Duration::new(1, 0));
+            std::thread::sleep(std::time::Duration::new(0, 16 * 1000 * 1000));
         }
     }
 }

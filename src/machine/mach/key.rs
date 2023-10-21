@@ -68,6 +68,8 @@ impl Into<u8> for Key {
     }
 }
 
+#[allow(dead_code)]
+#[allow(non_snake_case)]
 #[derive(Debug, Clone, Copy)]
 pub struct KeyBank {
     Key0: bool,
@@ -110,8 +112,8 @@ impl KeyBank {
         }
     }
 
-    fn get_key(&self, Key: Key) -> bool {
-        match Key {
+    fn get_key(&self, key: Key) -> bool {
+        match key {
             Key::Key0 => self.Key0,
             Key::Key1 => self.Key1,
             Key::Key2 => self.Key2,
@@ -131,9 +133,9 @@ impl KeyBank {
         }
     }
 
-    fn get_key_ref_mut(&mut self, Key: Key) -> &mut bool {
+    fn get_key_ref_mut(&mut self, key: Key) -> &mut bool {
         let bank_key: &mut bool;
-        match Key {
+        match key {
             Key::Key0 => bank_key = &mut self.Key0,
             Key::Key1 => bank_key = &mut self.Key1,
             Key::Key2 => bank_key = &mut self.Key2,
@@ -158,6 +160,7 @@ impl KeyBank {
         self.get_key(key)
     }
 
+    #[allow(dead_code)]
     pub fn set_value(&mut self, key: Key, val: bool) {
         let bank_key = self.get_key_ref_mut(key);
         *bank_key = val;

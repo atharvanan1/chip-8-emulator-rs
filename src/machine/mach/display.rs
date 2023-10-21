@@ -1,16 +1,15 @@
 use super::action::Action;
 use super::action::Actions;
-use super::reg::Reg;
 
 #[derive(Debug, Clone, Copy)]
-pub struct Display<const X: usize, const Y: usize> {
+pub struct MachDisplay<const X: usize, const Y: usize> {
     data: [[bool; X]; Y],
 }
 
 #[derive(Debug)]
 pub struct DisplayErr;
 
-impl<const X: usize, const Y: usize> Display<X, Y> {
+impl<const X: usize, const Y: usize> MachDisplay<X, Y> {
     pub fn new() -> Self {
         Self {
             data: [[false; X]; Y],
@@ -59,27 +58,38 @@ impl<const X: usize, const Y: usize> Display<X, Y> {
     }
 
     pub fn draw(&mut self, sprite_data: &[u8], x: u8, y: u8) -> Actions {
-        let mut x = x as usize % X;
-        let mut y = y as usize % Y;
+        let x = x as usize % X;
+        let y: usize = y as usize % Y;
+        let mut x_val = x;
+        let mut y_val = y;
         let mut actions = Actions::new();
         'outer: for byte in sprite_data.into_iter() {
             for bit in Self::u8_to_bools_le(*byte).into_iter() {
-                if bit && *self.get_pixel(x, y).unwrap() {
-                    self.set_pixel(x, y, false).unwrap();
+                if bit && *self.get_pixel(x_val, y_val).unwrap() {
+                    self.set_pixel(x_val, y_val, false).unwrap();
                     actions.push(Action::SetFlag);
-                } else if bit && *self.get_pixel(x, y).unwrap() == false {
-                    self.set_pixel(x, y, bit).unwrap();
+                } else if bit && *self.get_pixel(x_val, y_val).unwrap() == false {
+                    self.set_pixel(x_val, y_val, bit).unwrap();
                 }
-                x = x + 1;
-                if x == X {
-                    y = y + 1;
-                    if y == Y {
-                        break 'outer;
-                    }
-                }
-                x = x as usize % X;
+                x_val = x_val + 1;
+                x_val = x_val as usize % X;
             }
+            y_val = y_val + 1;
+            if y_val == Y {
+                break 'outer;
+            }
+            x_val = x;
         }
         actions
+    }
+
+    pub fn print(&self) {
+        for y in 0..Y {
+            for x in 0..X {
+                print!("{}", *self.get_pixel(x, y).unwrap() as u8);
+            }
+            println!();
+        }
+        println!();
     }
 }

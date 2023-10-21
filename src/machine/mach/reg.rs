@@ -1,4 +1,4 @@
-use enum_iterator::{all, Sequence};
+use enum_iterator::Sequence;
 
 #[derive(Debug, Clone, Copy, PartialEq, Sequence)]
 #[repr(u16)]
@@ -46,6 +46,7 @@ impl From<u8> for Reg {
     }
 }
 
+#[allow(non_snake_case)]
 #[derive(Debug, Clone, Copy)]
 pub struct RegBank {
     V0: u8,

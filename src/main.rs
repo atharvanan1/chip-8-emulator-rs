@@ -32,7 +32,7 @@ impl Emulation {
 }
 
 fn main() {
-    let file = PathBuf::from("test_opcode.ch8");
+    let file = PathBuf::from("test.ch8");
     let mut emulation = Emulation::new(file.as_path());
     emulation.start_emulation().unwrap();
 }

@@ -8,10 +8,12 @@ impl Timer {
         Self { val: 0 }
     }
 
+    #[allow(dead_code)]
     pub fn increment(&mut self) {
         self.val = self.val.wrapping_add(1);
     }
 
+    #[allow(dead_code)]
     pub fn decrement(&mut self) {
         self.val = self.val.wrapping_sub(1);
     }

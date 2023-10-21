@@ -1,5 +1,6 @@
 use super::reg::Reg;
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 pub enum Command {
     ExecuteMachineRoutine(u16),
@@ -42,91 +43,79 @@ pub enum Command {
     StoreWithIndexIncrement(Reg),
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct CommandConstruct {
-    command: u16,
-    reg_x: Reg,
-    reg_y: Reg,
-    val_u4: u8,
-    val_u8: u8,
-    val_u12: u16,
-}
+#[derive(Clone, Copy, Debug)]
+pub struct RawCommand(pub u16);
 
-impl CommandConstruct {
-    pub fn new(command: u16) -> Self {
-        let reg_x = Reg::from(((command >> 8) & 0x000F) as u8);
-        let reg_y = Reg::from(((command >> 4) & 0x000F) as u8);
-        let val_u4: u8 = (command & 0x000F) as u8;
-        let val_u8: u8 = (command & 0x00FF) as u8;
-        let val_u12: u16 = command & 0x0FFF;
-        Self {
-            command,
-            reg_x,
-            reg_y,
-            val_u4,
-            val_u8,
-            val_u12,
-        }
+impl RawCommand {
+    fn reg_x(self) -> Reg {
+        let nibble = (self.0 >> 8) as u8 & 0x0F;
+        Reg::from(nibble)
+    }
+
+    fn reg_y(self) -> Reg {
+        let nibble = (self.0 >> 4) as u8 & 0x0F;
+        Reg::from(nibble)
+    }
+
+    fn val4(self) -> u8 {
+        self.0 as u8 & 0x0F
+    }
+
+    fn val8(self) -> u8 {
+        self.0 as u8 & 0xFF
+    }
+
+    fn val12(self) -> u16 {
+        self.0 & 0x0FFF
     }
 
     fn decode(&self) -> Result<Command, CommandErr> {
-        let command = self.command;
+        let command = self.0;
         match command {
             0x00E0 => Ok(Command::ClearScreen),
             0x00EE => Ok(Command::Return),
-            command if (command & 0xF000) == 0x1000 => Ok(Command::Jump(self.val_u12)),
-            command if (command & 0xF000) == 0x2000 => Ok(Command::Call(self.val_u12)),
-            command if (command & 0xF000) == 0x3000 => {
-                Ok(Command::SkipIfRegVal(self.reg_x, self.val_u8))
-            }
-            command if (command & 0xF000) == 0x4000 => {
-                Ok(Command::SkipIfRegValNot(self.reg_x, self.val_u8))
-            }
-            command if (command & 0xF000) == 0x5000 => {
-                Ok(Command::SkipIfRegEqual(self.reg_x, self.reg_y))
-            }
-            command if (command & 0xF000) == 0x6000 => Ok(Command::SetVal(self.reg_x, self.val_u8)),
-            command if (command & 0xF000) == 0x7000 => Ok(Command::AddVal(self.reg_x, self.val_u8)),
-            command if (command & 0xF00F) == 0x8000 => Ok(Command::SetReg(self.reg_x, self.reg_y)),
-            command if (command & 0xF00F) == 0x8001 => Ok(Command::BinOR(self.reg_x, self.reg_y)),
-            command if (command & 0xF00F) == 0x8002 => Ok(Command::BinAND(self.reg_x, self.reg_y)),
-            command if (command & 0xF00F) == 0x8003 => Ok(Command::LogXOR(self.reg_x, self.reg_y)),
-            command if (command & 0xF00F) == 0x8004 => Ok(Command::AddReg(self.reg_x, self.reg_y)),
-            command if (command & 0xF00F) == 0x8005 => Ok(Command::SubReg(self.reg_x, self.reg_y)),
-            command if (command & 0xF00F) == 0x8006 => {
-                Ok(Command::ShiftRight(self.reg_x, self.reg_y))
-            }
-            command if (command & 0xF00F) == 0x8007 => {
-                Ok(Command::SubRegRev(self.reg_x, self.reg_y))
-            }
-            command if (command & 0xF00F) == 0x800E => {
-                Ok(Command::ShiftLeft(self.reg_x, self.reg_y))
-            }
-            command if (command & 0xF000) == 0x9000 => {
-                Ok(Command::SkipIfRegNotEqual(self.reg_x, self.reg_y))
-            }
-            command if (command & 0xF000) == 0xA000 => Ok(Command::SetIndex(self.val_u12)),
-            command if (command & 0xF000) == 0xD000 => {
-                Ok(Command::Display(self.reg_x, self.reg_y, self.val_u4))
-            }
-            command if (command & 0xF0FF) == 0xE09E => Ok(Command::SkipIfKey(self.reg_x)),
-            command if (command & 0xF0FF) == 0xE0A1 => Ok(Command::SkipIfNotKey(self.reg_x)),
-            command if (command & 0xF0FF) == 0xF007 => {
-                Ok(Command::SetRegFromDelayTimer(self.reg_x))
-            }
-            command if (command & 0xF0FF) == 0xF015 => {
-                Ok(Command::SetDelayTimerFromReg(self.reg_x))
-            }
-            command if (command & 0xF0FF) == 0xF018 => {
-                Ok(Command::SetSoundTimerFromReg(self.reg_x))
-            }
-            command if (command & 0xF0FF) == 0xF01E => Ok(Command::AddIndex(self.reg_x)),
-            command if (command & 0xF0FF) == 0xF00A => Ok(Command::GetKey(self.reg_x)),
-            command if (command & 0xF0FF) == 0xF029 => Ok(Command::Font(self.reg_x)),
-            command if (command & 0xF0FF) == 0xF033 => Ok(Command::BCDConv(self.reg_x)),
-            command if (command & 0xF0FF) == 0xF055 => Ok(Command::Store(self.reg_x)),
-            command if (command & 0xF0FF) == 0xF065 => Ok(Command::Load(self.reg_x)),
-            _ => Err(CommandErr),
+            _ => match command >> 12 {
+                0x1 => Ok(Command::Jump(self.val12())),
+                0x2 => Ok(Command::Call(self.val12())),
+                0x3 => Ok(Command::SkipIfRegVal(self.reg_x(), self.val8())),
+                0x4 => Ok(Command::SkipIfRegValNot(self.reg_x(), self.val8())),
+                0x5 => Ok(Command::SkipIfRegEqual(self.reg_x(), self.reg_y())),
+                0x6 => Ok(Command::SetVal(self.reg_x(), self.val8())),
+                0x7 => Ok(Command::AddVal(self.reg_x(), self.val8())),
+                0x8 => match command & 0x000F {
+                    0x0 => Ok(Command::SetReg(self.reg_x(), self.reg_y())),
+                    0x1 => Ok(Command::BinOR(self.reg_x(), self.reg_y())),
+                    0x2 => Ok(Command::BinAND(self.reg_x(), self.reg_y())),
+                    0x3 => Ok(Command::LogXOR(self.reg_x(), self.reg_y())),
+                    0x4 => Ok(Command::AddReg(self.reg_x(), self.reg_y())),
+                    0x5 => Ok(Command::SubReg(self.reg_x(), self.reg_y())),
+                    0x6 => Ok(Command::ShiftRight(self.reg_x(), self.reg_y())),
+                    0x7 => Ok(Command::SubRegRev(self.reg_x(), self.reg_y())),
+                    0xE => Ok(Command::ShiftLeft(self.reg_x(), self.reg_y())),
+                    _ => Err(CommandErr)
+                },
+                0x9 => Ok(Command::SkipIfRegNotEqual(self.reg_x(), self.reg_y())),
+                0xA => Ok(Command::SetIndex(self.val12())),
+                0xD => Ok(Command::Display(self.reg_x(), self.reg_y(), self.val4())),
+                0xE => match command & 0x00FF {
+                    0x9E => Ok(Command::SkipIfKey(self.reg_x())),
+                    0xA1 => Ok(Command::SkipIfNotKey(self.reg_x())),
+                    _ => Err(CommandErr),
+                }
+                0xF => match command & 0x00FF {
+                    0x07 => Ok(Command::SetRegFromDelayTimer(self.reg_x())),
+                    0x0A => Ok(Command::GetKey(self.reg_x())),
+                    0x15 => Ok(Command::SetDelayTimerFromReg(self.reg_x())),
+                    0x18 => Ok(Command::SetSoundTimerFromReg(self.reg_x())),
+                    0x1E => Ok(Command::AddIndex(self.reg_x())),
+                    0x29 => Ok(Command::Font(self.reg_x())),
+                    0x33 => Ok(Command::BCDConv(self.reg_x())),
+                    0x55 => Ok(Command::Store(self.reg_x())),
+                    0x65 => Ok(Command::Load(self.reg_x())),
+                    _ => Err(CommandErr),
+                }
+                _ => Err(CommandErr),
+            },
         }
     }
 }
@@ -134,7 +123,7 @@ impl CommandConstruct {
 #[derive(Debug)]
 pub struct CommandErr;
 
-impl TryInto<Command> for CommandConstruct {
+impl TryInto<Command> for RawCommand {
     type Error = CommandErr;
 
     fn try_into(self) -> Result<Command, Self::Error> {
